@@ -1,0 +1,275 @@
+openapi: 3.0.3
+
+info:
+  title: Импорт товаров
+  version: 1.0.0
+  description: |
+    API каталога товаров, загружаемых из xlsx.
+    Ошибки возвращаются в едином формате `{"error": {"code", "message"}}`, сообщения на русском.
+
+servers:
+  - url: /
+
+tags:
+  - name: Товары
+  - name: Служебное
+
+paths:
+  /api/health:
+    get:
+      tags: [Служебное]
+      summary: Состояние приложения
+      description: Проверяет доступность PostgreSQL и RabbitMQ.
+      operationId: health
+      responses:
+        '200':
+          description: Все зависимости доступны
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: Одна из зависимостей недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /api/products:
+    get:
+      tags: [Товары]
+      summary: Список товаров
+      description: Постраничный список с поиском по названию и фильтром по цене. Сортировка по названию.
+      operationId: listProducts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100000
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: name
+          in: query
+          description: Подстрока названия без учёта регистра
+          schema:
+            type: string
+            maxLength: 255
+          example: легинсы
+        - name: priceFrom
+          in: query
+          description: Минимальная цена включительно, допускается запятая
+          schema:
+            type: string
+            pattern: '^\d{1,10}([.,]\d{1,2})?$'
+          example: '800'
+        - name: priceTo
+          in: query
+          description: Максимальная цена включительно, допускается запятая
+          schema:
+            type: string
+            pattern: '^\d{1,10}([.,]\d{1,2})?$'
+          example: '1000'
+      responses:
+        '200':
+          description: Страница товаров
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductListItem'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/products/{id}:
+    get:
+      tags: [Товары]
+      summary: Карточка товара
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Товар с атрибутами и изображениями
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  responses:
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationFailed:
+      description: Некорректные параметры запроса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Decimal:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+      example: '1320.00'
+
+    Health:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, fail]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [ok, fail]
+          example:
+            database: ok
+            rabbitmq: ok
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: validation_failed
+            message:
+              type: string
+              example: Проверьте параметры запроса
+            fields:
+              type: object
+              description: Ошибки по полям, только для кода validation_failed
+              additionalProperties:
+                type: string
+              example:
+                limit: Размер страницы должен быть целым числом от 1 до 100
+
+    PageMeta:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 40
+        totalPages:
+          type: integer
+          example: 2
+
+    ProductListItem:
+      type: object
+      required: [id, externalCode, name, price, discount]
+      properties:
+        id:
+          type: integer
+          example: 12
+        externalCode:
+          type: string
+          example: 3UHfAid1jaMiwgBuNvnsf3
+        name:
+          type: string
+          example: Бермуды мужские, Grigio/Verde, OMSA, 46(M), РОССИЯ
+        price:
+          $ref: '#/components/schemas/Decimal'
+        discount:
+          description: Скидка в процентах, (цена продажи − закупочная) / цена продажи × 100
+          allOf:
+            - $ref: '#/components/schemas/Decimal'
+          nullable: true
+          example: '33.33'
+
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/ProductListItem'
+        - type: object
+          required: [description, attributes, images, createdAt, updatedAt]
+          properties:
+            description:
+              type: string
+              nullable: true
+            attributes:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductAttribute'
+            images:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductImage'
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    ProductAttribute:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          example: Цвет
+        value:
+          type: string
+          example: Grigio/Verde
+
+    ProductImage:
+      type: object
+      required: [id, url, path, src]
+      properties:
+        id:
+          type: integer
+          example: 5
+        url:
+          type: string
+          description: Исходная ссылка из файла импорта
+          example: http://catalog.collant.ru/pics/SNL-504038_m.jpg
+        path:
+          type: string
+          description: Путь к скачанному файлу относительно хранилища
+          example: images/3f/3fa2b1c4d5e6f708192a3b4c5d6e7f8091a2b3c4.jpg
+        src:
+          type: string
+          description: Адрес, по которому файл отдаёт веб-сервер
+          example: /media/images/3f/3fa2b1c4d5e6f708192a3b4c5d6e7f8091a2b3c4.jpg

@@ -11,7 +11,7 @@ final class ErrorHandlingTest extends ApiTestCase
 {
     public function testUnknownRoute(): void
     {
-        $response = $this->request($this->createApp(), 'GET', '/api/unknown');
+        $response = $this->request('GET', '/api/unknown');
 
         self::assertSame(404, $response->getStatusCode());
         self::assertSame(
@@ -22,7 +22,7 @@ final class ErrorHandlingTest extends ApiTestCase
 
     public function testWrongMethod(): void
     {
-        $response = $this->request($this->createApp(), 'DELETE', '/api/health');
+        $response = $this->request('DELETE', '/api/health');
 
         self::assertSame(405, $response->getStatusCode());
         self::assertSame('GET', $response->getHeaderLine('Allow'));
@@ -31,10 +31,10 @@ final class ErrorHandlingTest extends ApiTestCase
 
     public function testExceptionDetailsHiddenByDefault(): void
     {
-        $app = $this->createApp(['app.debug' => false]);
-        $app->get('/api/failing', fn() => throw new RuntimeException('секретная деталь'));
+        $this->replaceService('app.debug', false);
+        $this->app()->get('/api/failing', fn() => throw new RuntimeException('секретная деталь'));
 
-        $response = $this->request($app, 'GET', '/api/failing');
+        $response = $this->request('GET', '/api/failing');
 
         self::assertSame(500, $response->getStatusCode());
         self::assertSame(
@@ -45,10 +45,10 @@ final class ErrorHandlingTest extends ApiTestCase
 
     public function testExceptionDetailsShownInDebug(): void
     {
-        $app = $this->createApp(['app.debug' => true]);
-        $app->get('/api/failing', fn() => throw new RuntimeException('секретная деталь'));
+        $this->replaceService('app.debug', true);
+        $this->app()->get('/api/failing', fn() => throw new RuntimeException('секретная деталь'));
 
-        $body = $this->decode($this->request($app, 'GET', '/api/failing'));
+        $body = $this->decode($this->request('GET', '/api/failing'));
 
         self::assertSame('секретная деталь', $body['error']['debug']['message'] ?? null);
     }

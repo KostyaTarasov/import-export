@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use App\Exception\ApiException;
+use App\Exception\ValidationException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -28,6 +30,7 @@ final readonly class ErrorHandler implements ErrorHandlerInterface
         bool $logErrorDetails,
     ): ResponseInterface {
         [$status, $code, $message] = match (true) {
+            $exception instanceof ApiException => [$exception->statusCode(), $exception->errorCode(), $exception->getMessage()],
             $exception instanceof HttpNotFoundException => [404, 'not_found', 'Ресурс не найден'],
             $exception instanceof HttpMethodNotAllowedException => [405, 'method_not_allowed', 'Метод не поддерживается'],
             $exception instanceof HttpBadRequestException => [400, 'bad_request', 'Некорректный запрос'],
@@ -35,6 +38,10 @@ final readonly class ErrorHandler implements ErrorHandlerInterface
         };
 
         $error = ['code' => $code, 'message' => $message];
+
+        if ($exception instanceof ValidationException) {
+            $error['fields'] = $exception->errors;
+        }
 
         if ($status >= 500) {
             $this->logger->error('Необработанное исключение', [
