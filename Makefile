@@ -19,7 +19,7 @@ build:
 	$(DC) build
 
 logs:
-	$(DC) logs -f app nginx
+	$(DC) logs -f app worker nginx
 
 sh:
 	$(DC) exec app sh

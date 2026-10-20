@@ -13,6 +13,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  worker:
+    build:
+      context: ./backend
+      target: prod
+    command: ["bin/console", "app:import:worker", "--time-limit=3600", "--memory-limit=256"]
+    user: www-data
+    env_file: .env
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
   nginx:
     image: nginx:1.27-alpine
     ports:

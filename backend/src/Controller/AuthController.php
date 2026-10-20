@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Dto\Credentials;
-use App\Entity\User;
 use App\Http\JsonResponder;
+use App\Middleware\JwtAuthMiddleware;
 use App\Service\Auth\AuthService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -32,8 +32,7 @@ final readonly class AuthController
 
     public function me(ServerRequestInterface $request): ResponseInterface
     {
-        $user = $request->getAttribute('user');
-        assert($user instanceof User);
+        $user = JwtAuthMiddleware::user($request);
 
         return $this->responder->json([
             'data' => [

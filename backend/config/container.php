@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Command\ImportProductsCommand;
+use App\Command\ImportWorkerCommand;
 use App\Command\LoadFixturesCommand;
 use App\Doctrine\ResettableEntityManager;
 use App\Fixture\ProductFixture;
@@ -14,6 +15,9 @@ use App\Service\Health\RabbitMqCheck;
 use App\Service\Image\HttpImageDownloader;
 use App\Service\Image\ImageDownloader;
 use App\Service\Image\ImageStorage;
+use App\Service\Import\ImportFileValidator;
+use App\Service\Import\ImportService;
+use Doctrine\DBAL\Configuration as DbalConfiguration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\Migrations\Configuration\EntityManager\ExistingEntityManager;
@@ -36,9 +40,13 @@ use Slim\Factory\AppFactory;
 use Slim\Handlers\Strategies\RequestHandler;
 use Slim\Psr7\Factory\ResponseFactory;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\DoctrineDbalAdapter;
 use Symfony\Component\Cache\Adapter\PhpFilesAdapter;
 use Symfony\Component\Console\Application;
 use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
+use Symfony\Component\RateLimiter\Storage\CacheStorage;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 use function DI\autowire;
@@ -68,6 +76,7 @@ return [
             new Migrations\UpToDateCommand($dependencyFactory),
             $container->get(LoadFixturesCommand::class),
             $container->get(ImportProductsCommand::class),
+            $container->get(ImportWorkerCommand::class),
         ]);
 
         return $console;
@@ -83,7 +92,12 @@ return [
         return $logger;
     },
 
-    Connection::class => static fn(ContainerInterface $container): Connection => DriverManager::getConnection($container->get('db')),
+    Connection::class => static function (ContainerInterface $container): Connection {
+        $config = new DbalConfiguration();
+        $config->setSchemaAssetsFilter(static fn(string $table): bool => !in_array($table, ['cache_items', 'public.cache_items'], true));
+
+        return DriverManager::getConnection($container->get('db'), $config);
+    },
 
     Configuration::class => static function (ContainerInterface $container): Configuration {
         $debug = $container->get('app.debug');
@@ -128,6 +142,20 @@ return [
     HttpImageDownloader::class => autowire()
         ->constructorParameter('timeout', get('image.timeout'))
         ->constructorParameter('maxSize', get('image.max_size')),
+
+    ImportFileValidator::class => autowire()->constructorParameter('maxSize', get('import.max_file_size')),
+
+    ImportService::class => autowire()->constructorParameter('storagePath', get('path.storage')),
+
+    RateLimiterFactoryInterface::class => static fn(ContainerInterface $container): RateLimiterFactoryInterface => new RateLimiterFactory(
+        [
+            'id' => 'import',
+            'policy' => 'sliding_window',
+            'limit' => $container->get('import.rate_limit'),
+            'interval' => $container->get('import.rate_interval'),
+        ],
+        new CacheStorage(new DoctrineDbalAdapter($container->get(Connection::class))),
+    ),
 
     JwtEncoder::class => autowire()
         ->constructorParameter('secret', get('jwt.secret'))

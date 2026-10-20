@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Support;
 
 use App\Entity\User;
-use App\Repository\UserRepository;
 use App\Service\Auth\JwtEncoder;
 use DI\Container;
 use League\OpenAPIValidation\PSR7\Exception\ValidationFailed;
@@ -15,15 +14,29 @@ use League\OpenAPIValidation\PSR7\ValidatorBuilder;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\StreamFactory;
+use Slim\Psr7\UploadedFile;
 
 abstract class ApiTestCase extends DatabaseTestCase
 {
     private static ?ResponseValidator $specValidator = null;
 
     private ?string $token = null;
+
+    /**
+     * @var list<string>
+     */
+    private array $uploads = [];
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        array_map(unlink(...), array_filter($this->uploads, is_file(...)));
+    }
 
     protected function replaceService(string $id, mixed $value): void
     {
@@ -42,14 +55,6 @@ abstract class ApiTestCase extends DatabaseTestCase
         return $this->container->get(App::class);
     }
 
-    protected function createUser(string $email = 'manager@example.com', string $password = 'secret-password'): User
-    {
-        $user = new User($email, password_hash($password, PASSWORD_BCRYPT, ['cost' => 4]));
-        $this->container->get(UserRepository::class)->save($user);
-
-        return $user;
-    }
-
     protected function authenticate(?User $user = null): User
     {
         $user ??= $this->createUser();
@@ -61,6 +66,18 @@ abstract class ApiTestCase extends DatabaseTestCase
     protected function useToken(?string $token): void
     {
         $this->token = $token;
+    }
+
+    protected function upload(string $uri, string $source, string $clientName, ?int $size = null): ResponseInterface
+    {
+        $copy = $this->uploads[] = (string) tempnam(sys_get_temp_dir(), 'upload');
+        copy($source, $copy);
+
+        $request = new ServerRequestFactory()
+            ->createServerRequest('POST', $uri)
+            ->withUploadedFiles(['file' => new UploadedFile($copy, $clientName, 'application/octet-stream', $size ?? (int) filesize($copy))]);
+
+        return $this->send($request);
     }
 
     /**
@@ -76,13 +93,18 @@ abstract class ApiTestCase extends DatabaseTestCase
                 ->withBody(new StreamFactory()->createStream(json_encode($json, JSON_THROW_ON_ERROR)));
         }
 
+        return $this->send($request);
+    }
+
+    private function send(ServerRequestInterface $request): ResponseInterface
+    {
         if ($this->token !== null) {
             $request = $request->withHeader('Authorization', 'Bearer ' . $this->token);
         }
 
         $response = $this->app()->handle($request);
 
-        $this->assertMatchesSpec($method, $request->getUri()->getPath(), $response);
+        $this->assertMatchesSpec($request->getMethod(), $request->getUri()->getPath(), $response);
 
         return $response;
     }

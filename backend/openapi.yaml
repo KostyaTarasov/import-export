@@ -19,6 +19,7 @@ security:
 tags:
   - name: Авторизация
   - name: Товары
+  - name: Импорт
   - name: Служебное
 
 paths:
@@ -180,7 +181,152 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/imports:
+    post:
+      tags: [Импорт]
+      summary: Загрузить xlsx-файл
+      description: |
+        Файл проверяется (расширение, MIME, размер, структура xlsx) и ставится в очередь.
+        Обработку выполняет воркер, ход импорта смотрите в `GET /api/imports/{id}`.
+        Не больше 5 загрузок в минуту на пользователя.
+      operationId: uploadImport
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: Файл принят, задача поставлена в очередь
+          headers:
+            Location:
+              schema:
+                type: string
+              example: /api/imports/0192f6c4-7a1b-7c3d-8e9f-0a1b2c3d4e5f
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ImportJob'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Файл больше допустимого размера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Файл не xlsx или повреждён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          description: Превышен лимит загрузок
+          headers:
+            Retry-After:
+              description: Через сколько секунд можно повторить
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Очередь импорта недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/imports/{id}:
+    get:
+      tags: [Импорт]
+      summary: Статус и прогресс импорта
+      operationId: getImport
+      parameters:
+        - $ref: '#/components/parameters/ImportId'
+      responses:
+        '200':
+          description: Задача импорта
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ImportJob'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/imports/{id}/errors:
+    get:
+      tags: [Импорт]
+      summary: Отчёт об ошибках и предупреждениях
+      description: Записи отсортированы по номеру строки в файле. Номер строки совпадает с номером в Excel.
+      operationId: listImportErrors
+      parameters:
+        - $ref: '#/components/parameters/ImportId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Страница отчёта
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportError'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
 components:
+  parameters:
+    ImportId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -255,6 +401,69 @@ components:
                 type: string
               example:
                 limit: Размер страницы должен быть целым числом от 1 до 100
+
+    ImportJob:
+      type: object
+      required: [id, status, fileName, totalRows, processedRows, createdCount, updatedCount, failedCount, warningCount, error, createdAt, startedAt, finishedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: completed ставится и тогда, когда часть строк не прошла проверку — они есть в отчёте
+        fileName:
+          type: string
+          example: import example.xlsx
+        totalRows:
+          type: integer
+          example: 40
+        processedRows:
+          type: integer
+          example: 18
+        createdCount:
+          type: integer
+        updatedCount:
+          type: integer
+        failedCount:
+          type: integer
+        warningCount:
+          type: integer
+        error:
+          type: string
+          nullable: true
+          description: Причина, если весь файл не удалось обработать
+          example: 'В файле нет обязательных колонок: Внешний код'
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ImportError:
+      type: object
+      required: [row, externalCode, level, message]
+      properties:
+        row:
+          type: integer
+          example: 7
+        externalCode:
+          type: string
+          nullable: true
+          example: 3UHfAid1jaMiwgBuNvnsf3
+        level:
+          type: string
+          enum: [error, warning]
+        message:
+          type: string
+          example: Цена продажи «договорная» не является числом
 
     Credentials:
       type: object

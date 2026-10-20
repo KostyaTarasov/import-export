@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Support;
 
 use App\Entity\Product;
+use App\Entity\User;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -47,6 +49,14 @@ abstract class DatabaseTestCase extends TestCase
     protected function countRows(string $table): int
     {
         return (int) $this->em->getConnection()->fetchOne(sprintf('SELECT count(*) FROM %s', $table));
+    }
+
+    protected function createUser(string $email = 'manager@example.com', string $password = 'secret-password'): User
+    {
+        $user = new User($email, password_hash($password, PASSWORD_BCRYPT, ['cost' => 4]));
+        $this->container->get(UserRepository::class)->save($user);
+
+        return $user;
     }
 
     protected function product(string $externalCode): Product

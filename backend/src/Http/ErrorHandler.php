@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http;
 
 use App\Exception\ApiException;
+use App\Exception\TooManyRequestsException;
 use App\Exception\UnauthorizedException;
 use App\Exception\ValidationException;
 use Psr\Http\Message\ResponseInterface;
@@ -44,7 +45,7 @@ final readonly class ErrorHandler implements ErrorHandlerInterface
             $error['fields'] = $exception->errors;
         }
 
-        if ($status >= 500) {
+        if ($status >= 500 && !$exception instanceof ApiException) {
             $this->logger->error('Необработанное исключение', [
                 'method' => $request->getMethod(),
                 'uri' => (string) $request->getUri(),
@@ -68,6 +69,10 @@ final readonly class ErrorHandler implements ErrorHandlerInterface
 
         if ($exception instanceof UnauthorizedException) {
             $response = $response->withHeader('WWW-Authenticate', 'Bearer');
+        }
+
+        if ($exception instanceof TooManyRequestsException) {
+            $response = $response->withHeader('Retry-After', (string) $exception->retryAfter);
         }
 
         return $response;
