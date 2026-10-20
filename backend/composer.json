@@ -1,0 +1,47 @@
+{
+    "name": "product-import/backend",
+    "description": "API импорта товаров из xlsx",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "ext-amqp": "*",
+        "ext-pdo_pgsql": "*",
+        "doctrine/dbal": "^4.5",
+        "monolog/monolog": "^3.12",
+        "php-di/php-di": "^7.1",
+        "slim/psr7": "^1.8",
+        "slim/slim": "^4.15"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.3",
+        "phpstan/phpstan-phpunit": "^2.1",
+        "phpunit/phpunit": "^13.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": [
+            "php-cs-fixer fix --dry-run --diff",
+            "phpstan analyse --no-progress"
+        ],
+        "fix": "php-cs-fixer fix"
+    }
+}

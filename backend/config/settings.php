@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+$env = static function (string $name, string $default = ''): string {
+    $value = getenv($name);
+
+    return $value === false ? $default : $value;
+};
+
+return [
+    'app.debug' => $env('APP_DEBUG', '0') === '1',
+    'log.level' => $env('LOG_LEVEL', 'info'),
+    'db' => [
+        'driver' => 'pdo_pgsql',
+        'host' => $env('DB_HOST', 'db'),
+        'port' => (int) $env('DB_PORT', '5432'),
+        'dbname' => $env('DB_NAME', 'products'),
+        'user' => $env('DB_USER', 'app'),
+        'password' => $env('DB_PASSWORD'),
+        'charset' => 'utf8',
+    ],
+    'messenger.dsn' => $env('MESSENGER_TRANSPORT_DSN'),
+];
