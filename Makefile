@@ -1,7 +1,9 @@
 DC := docker compose
-TOOLS := $(DC) run --rm --user $(shell id -u):$(shell id -g) php
+USER_ID := $(shell id -u):$(shell id -g)
+PHP := $(DC) run --rm --user $(USER_ID) php
+NODE := $(DC) run --rm --no-deps --user $(USER_ID) node
 
-.PHONY: init up down build logs sh migrate seed install test lint fix
+.PHONY: init up down build logs sh migrate seed install dev test lint fix
 
 init: .env build up migrate seed
 
@@ -30,16 +32,25 @@ migrate:
 seed:
 	$(DC) exec -u www-data app bin/console app:fixtures:load --no-interaction
 
-install: backend/vendor/autoload.php
+install: backend/vendor/autoload.php frontend/node_modules/.package-lock.json
 
 backend/vendor/autoload.php: backend/composer.lock
-	$(TOOLS) composer install
+	$(PHP) composer install
+
+frontend/node_modules/.package-lock.json: frontend/package-lock.json
+	$(NODE) npm ci
+
+dev: install
+	$(DC) run --rm --service-ports --user $(USER_ID) node npx ng serve --host 0.0.0.0 --port 4200
 
 test: install
-	$(TOOLS) composer test
+	$(PHP) composer test
+	$(NODE) npx ng test --watch=false
 
 lint: install
-	$(TOOLS) composer lint
+	$(PHP) composer lint
+	$(NODE) sh -c 'npx ng lint && npm run format:check'
 
 fix: install
-	$(TOOLS) composer fix
+	$(PHP) composer fix
+	$(NODE) npm run format

@@ -1,0 +1,89 @@
+@let state = state$ | async;
+
+<div class="page">
+  <a mat-button class="back" routerLink="/products" [queryParams]="listParams$ | async">
+    <mat-icon>arrow_back</mat-icon>
+    К списку товаров
+  </a>
+
+  @if (state?.status === 'loaded') {
+    @let product = state.product;
+
+    <article class="product">
+      <section class="gallery">
+        @if (product.images.length > 0) {
+          @let image = product.images[selectedImage()] ?? product.images[0];
+          <div class="main-image">
+            <img [src]="image.src" [alt]="product.name" />
+          </div>
+
+          @if (product.images.length > 1) {
+            <div class="thumbnails">
+              @for (thumb of product.images; track thumb.id; let index = $index) {
+                <button
+                  type="button"
+                  class="thumbnail"
+                  [class.selected]="index === selectedImage()"
+                  [attr.aria-label]="'Фото ' + (index + 1)"
+                  (click)="selectedImage.set(index)"
+                >
+                  <img [src]="thumb.src" alt="" loading="lazy" />
+                </button>
+              }
+            </div>
+          }
+        } @else {
+          <div class="main-image empty">
+            <mat-icon>image_not_supported</mat-icon>
+            <span>Фото нет</span>
+          </div>
+        }
+      </section>
+
+      <section class="info">
+        <h1 class="title">{{ product.name }}</h1>
+        <p class="code">
+          Внешний код <span class="mono">{{ product.externalCode }}</span>
+        </p>
+
+        <div class="price-row">
+          <span class="price">{{
+            product.price | currency: 'RUB' : 'symbol-narrow' : '1.0-2'
+          }}</span>
+          @if (product.discount !== null) {
+            <span class="discount">скидка {{ product.discount | number: '1.0-2' }} %</span>
+          }
+        </div>
+
+        @if (product.description) {
+          <p class="description">{{ product.description }}</p>
+        }
+
+        @if (product.attributes.length > 0) {
+          <h2 class="section-title">Характеристики</h2>
+          <dl class="attributes">
+            @for (attribute of product.attributes; track attribute.key) {
+              <dt>{{ attribute.key }}</dt>
+              <dd>{{ attribute.value }}</dd>
+            }
+          </dl>
+        }
+
+        <p class="updated muted">Обновлён {{ product.updatedAt | date: 'd MMMM y, HH:mm' }}</p>
+      </section>
+    </article>
+  } @else if (state?.status === 'not-found') {
+    <div class="state">
+      <mat-icon>inventory_2</mat-icon>
+      <p>Товар не найден</p>
+      <p class="muted">Возможно, его удалили или ссылка устарела.</p>
+    </div>
+  } @else if (state?.status === 'error') {
+    <div class="state" role="alert">
+      <mat-icon>error</mat-icon>
+      <p>{{ state.message }}</p>
+    </div>
+  } @else {
+    <mat-progress-bar mode="indeterminate" />
+  }
+</div>

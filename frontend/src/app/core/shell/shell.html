@@ -1,0 +1,21 @@
+<mat-toolbar class="toolbar">
+  <a class="brand" routerLink="/products">
+    <mat-icon>inventory_2</mat-icon>
+    <span>Каталог товаров</span>
+  </a>
+
+  <nav class="nav">
+    <a mat-button routerLink="/products" routerLinkActive="active">Товары</a>
+  </nav>
+
+  <span class="spacer"></span>
+
+  <span class="user">{{ auth.email() }}</span>
+  <button mat-icon-button type="button" matTooltip="Выйти" aria-label="Выйти" (click)="logout()">
+    <mat-icon>logout</mat-icon>
+  </button>
+</mat-toolbar>
+
+<main>
+  <router-outlet />
+</main>
