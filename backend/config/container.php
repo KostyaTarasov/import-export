@@ -2,11 +2,24 @@
 
 declare(strict_types=1);
 
+use App\Command\LoadFixturesCommand;
+use App\Doctrine\ResettableEntityManager;
+use App\Fixture\ProductFixture;
 use App\Service\Health\DatabaseCheck;
 use App\Service\Health\HealthService;
 use App\Service\Health\RabbitMqCheck;
+use App\Service\Image\ImageStorage;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\Migrations\Configuration\EntityManager\ExistingEntityManager;
+use Doctrine\Migrations\Configuration\Migration\ConfigurationArray;
+use Doctrine\Migrations\DependencyFactory;
+use Doctrine\Migrations\Tools\Console\Command as Migrations;
+use Doctrine\ORM\Configuration;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\UnderscoreNamingStrategy;
+use Doctrine\ORM\ORMSetup;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
@@ -17,6 +30,9 @@ use Slim\App;
 use Slim\Factory\AppFactory;
 use Slim\Handlers\Strategies\RequestHandler;
 use Slim\Psr7\Factory\ResponseFactory;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\PhpFilesAdapter;
+use Symfony\Component\Console\Application;
 
 use function DI\autowire;
 use function DI\get;
@@ -32,6 +48,23 @@ return [
         return $app;
     },
 
+    Application::class => static function (ContainerInterface $container): Application {
+        $dependencyFactory = $container->get(DependencyFactory::class);
+
+        $console = new Application('product-import');
+        $console->addCommands([
+            new Migrations\DiffCommand($dependencyFactory),
+            new Migrations\ExecuteCommand($dependencyFactory),
+            new Migrations\GenerateCommand($dependencyFactory),
+            new Migrations\MigrateCommand($dependencyFactory),
+            new Migrations\StatusCommand($dependencyFactory),
+            new Migrations\UpToDateCommand($dependencyFactory),
+            $container->get(LoadFixturesCommand::class),
+        ]);
+
+        return $console;
+    },
+
     ResponseFactoryInterface::class => autowire(ResponseFactory::class),
 
     LoggerInterface::class => static function (ContainerInterface $container): LoggerInterface {
@@ -43,6 +76,41 @@ return [
     },
 
     Connection::class => static fn(ContainerInterface $container): Connection => DriverManager::getConnection($container->get('db')),
+
+    Configuration::class => static function (ContainerInterface $container): Configuration {
+        $debug = $container->get('app.debug');
+        $cache = $debug ? new ArrayAdapter() : new PhpFilesAdapter('doctrine', 0, $container->get('path.cache'));
+
+        $config = ORMSetup::createAttributeMetadataConfig([dirname(__DIR__) . '/src/Entity'], $debug, cache: $cache);
+        $config->setNamingStrategy(new UnderscoreNamingStrategy());
+        $config->enableNativeLazyObjects(true);
+
+        return $config;
+    },
+
+    EntityManagerInterface::class => get(ResettableEntityManager::class),
+
+    ResettableEntityManager::class => static fn(ContainerInterface $container): ResettableEntityManager => new ResettableEntityManager(
+        static fn(): EntityManagerInterface => new EntityManager(
+            $container->get(Connection::class),
+            $container->get(Configuration::class),
+        ),
+    ),
+
+    DependencyFactory::class => static fn(ContainerInterface $container): DependencyFactory => DependencyFactory::fromEntityManager(
+        new ConfigurationArray([
+            'migrations_paths' => ['App\Migrations' => dirname(__DIR__) . '/migrations'],
+            'all_or_nothing' => true,
+            'transactional' => true,
+            'check_database_platform' => true,
+            'organize_migrations' => 'none',
+        ]),
+        new ExistingEntityManager($container->get(EntityManagerInterface::class)),
+    ),
+
+    ImageStorage::class => autowire()->constructorParameter('root', get('path.storage')),
+
+    ProductFixture::class => autowire()->constructorParameter('imagesDir', get('path.seed_images')),
 
     RabbitMqCheck::class => autowire()->constructorParameter('dsn', get('messenger.dsn')),
 

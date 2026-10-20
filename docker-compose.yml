@@ -4,6 +4,8 @@ services:
       context: ./backend
       target: prod
     env_file: .env
+    volumes:
+      - storage:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -55,8 +57,14 @@ services:
     profiles:
       - tools
     env_file: .env
+    environment:
+      APP_DEBUG: "1"
     volumes:
       - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  storage:

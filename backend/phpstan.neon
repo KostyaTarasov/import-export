@@ -1,7 +1,11 @@
 parameters:
     level: 8
     paths:
+        - bin/console
         - config
+        - migrations
         - public
         - src
         - tests
+    doctrine:
+        objectManagerLoader: tests/object-manager.php

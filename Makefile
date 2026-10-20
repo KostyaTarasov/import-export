@@ -1,9 +1,9 @@
 DC := docker compose
 TOOLS := $(DC) run --rm --user $(shell id -u):$(shell id -g) php
 
-.PHONY: init up down build logs sh install test lint fix
+.PHONY: init up down build logs sh migrate seed install test lint fix
 
-init: .env build up
+init: .env build up migrate seed
 
 .env:
 	cp .env.example .env
@@ -22,6 +22,12 @@ logs:
 
 sh:
 	$(DC) exec app sh
+
+migrate:
+	$(DC) exec -u www-data app bin/console migrations:migrate --no-interaction
+
+seed:
+	$(DC) exec -u www-data app bin/console app:fixtures:load --no-interaction
 
 install: backend/vendor/autoload.php
 

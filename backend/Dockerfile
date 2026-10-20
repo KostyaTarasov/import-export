@@ -28,3 +28,4 @@ FROM base AS prod
 
 COPY docker/php/opcache.ini $PHP_INI_DIR/conf.d/zz-opcache.ini
 COPY --from=vendor --chown=www-data:www-data /app /app
+RUN install -d -o www-data -g www-data storage storage/images storage/imports var var/cache

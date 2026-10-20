@@ -8,9 +8,14 @@ $env = static function (string $name, string $default = ''): string {
     return $value === false ? $default : $value;
 };
 
+$root = dirname(__DIR__);
+
 return [
     'app.debug' => $env('APP_DEBUG', '0') === '1',
     'log.level' => $env('LOG_LEVEL', 'info'),
+    'path.storage' => $root . '/storage',
+    'path.cache' => $root . '/var/cache',
+    'path.seed_images' => $root . '/fixtures/images',
     'db' => [
         'driver' => 'pdo_pgsql',
         'host' => $env('DB_HOST', 'db'),
@@ -19,6 +24,7 @@ return [
         'user' => $env('DB_USER', 'app'),
         'password' => $env('DB_PASSWORD'),
         'charset' => 'utf8',
+        'serverVersion' => '17',
     ],
     'messenger.dsn' => $env('MESSENGER_TRANSPORT_DSN'),
 ];
