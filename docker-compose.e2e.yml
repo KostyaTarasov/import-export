@@ -1,0 +1,33 @@
+services:
+  assets:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./frontend/e2e/assets/sample.jpg:/usr/share/nginx/html/sample.jpg:ro
+      - ./frontend/e2e/assets/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  worker:
+    depends_on:
+      assets:
+        condition: service_started
+
+  nginx:
+    ports: !reset []
+
+  rabbitmq:
+    ports: !reset []
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.64.1-noble
+    profiles:
+      - e2e
+    working_dir: /app
+    environment:
+      HOME: /tmp
+      E2E_BASE_URL: http://nginx
+      CI: ${CI:-}
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      nginx:
+        condition: service_healthy
+    command: ["npx", "playwright", "test"]

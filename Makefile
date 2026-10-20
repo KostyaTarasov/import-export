@@ -2,8 +2,9 @@ DC := docker compose
 USER_ID := $(shell id -u):$(shell id -g)
 PHP := $(DC) run --rm --user $(USER_ID) php
 NODE := $(DC) run --rm --no-deps --user $(USER_ID) node
+E2E := $(DC) -p product-import-e2e -f docker-compose.yml -f docker-compose.e2e.yml
 
-.PHONY: init up down build logs sh migrate seed install dev test lint fix
+.PHONY: init up down build logs sh migrate seed install dev test lint fix e2e
 
 init: .env build up migrate seed
 
@@ -54,3 +55,9 @@ lint: install
 fix: install
 	$(PHP) composer fix
 	$(NODE) npm run format
+
+e2e: .env frontend/node_modules/.package-lock.json
+	$(E2E) up -d --build --wait
+	$(E2E) exec -T -u www-data app bin/console migrations:migrate --no-interaction
+	$(E2E) exec -T -u www-data app bin/console app:fixtures:load --no-interaction
+	$(E2E) run --rm --user $(USER_ID) playwright; status=$$?; $(E2E) down -v; exit $$status
