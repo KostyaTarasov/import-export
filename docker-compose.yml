@@ -30,15 +30,20 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: ./frontend
     ports:
       - "${APP_PORT:-8080}:80"
     volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - storage:/app/storage:ro
     depends_on:
       - app
       - swagger
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
 
   swagger:
