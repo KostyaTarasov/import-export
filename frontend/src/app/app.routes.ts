@@ -26,6 +26,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/product-detail/product-detail').then((m) => m.ProductDetail),
       },
+      {
+        path: 'import',
+        title: 'Импорт',
+        loadComponent: () => import('./pages/import/import-page').then((m) => m.ImportPage),
+      },
+      {
+        path: 'import/:jobId',
+        title: 'Импорт',
+        loadComponent: () => import('./pages/import/import-page').then((m) => m.ImportPage),
+      },
     ],
   },
   {

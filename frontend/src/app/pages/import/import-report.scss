@@ -1,0 +1,50 @@
+.report {
+  margin-top: 24px;
+  background: var(--mat-sys-surface);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.title {
+  font: var(--mat-sys-title-medium);
+  margin: 0;
+  padding: 16px 16px 8px;
+}
+
+.progress {
+  height: 4px;
+}
+
+.table {
+  width: 100%;
+}
+
+.level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    color: #b26a00;
+  }
+
+  &.error mat-icon {
+    color: var(--mat-sys-error);
+  }
+}
+
+.message {
+  overflow-wrap: anywhere;
+}
+
+.failed {
+  margin: 0;
+  padding: 16px;
+  color: var(--mat-sys-error);
+}

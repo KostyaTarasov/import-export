@@ -1,0 +1,144 @@
+@let state = state$ | async;
+
+<div class="page">
+  <h1 class="page-title">Импорт товаров</h1>
+  <p class="page-subtitle">
+    Товары с уже известным внешним кодом обновятся, новые добавятся. Фото скачиваются по ссылкам из
+    файла.
+  </p>
+
+  @if (jobId() === undefined) {
+    <section
+      class="dropzone"
+      [class.dragging]="dragging()"
+      (dragover)="dragOver($event)"
+      (dragleave)="dragging.set(false)"
+      (drop)="drop($event)"
+    >
+      <mat-icon class="dropzone-icon">upload_file</mat-icon>
+      <p>Перетащите xlsx-файл сюда</p>
+      <input
+        #picker
+        type="file"
+        class="file-input"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        (change)="pick(picker)"
+      />
+      <button mat-stroked-button type="button" (click)="picker.click()">Выбрать файл</button>
+      <p class="hint muted">Только .xlsx, не больше 10 МБ</p>
+    </section>
+
+    @if (file(); as selected) {
+      <div class="selected">
+        <mat-icon>description</mat-icon>
+        <span class="file-name">{{ selected.name }}</span>
+        <span class="muted">{{ size(selected.size) }}</span>
+        <span class="spacer"></span>
+        <button
+          mat-flat-button
+          type="button"
+          [disabled]="uploadPercent() !== null"
+          (click)="upload()"
+        >
+          Загрузить
+        </button>
+      </div>
+    }
+
+    @if (uploadPercent(); as percent) {
+      <div class="upload-progress">
+        <mat-progress-bar mode="determinate" [value]="percent" />
+        <p class="muted">Отправляем файл… {{ percent }} %</p>
+      </div>
+    }
+
+    @if (fileError(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  } @else if (state?.kind === 'loaded') {
+    @let job = state.job;
+
+    <section class="status" [class]="job.status">
+      <header class="status-header">
+        <mat-icon class="status-icon">
+          @switch (job.status) {
+            @case ('completed') {
+              task_alt
+            }
+            @case ('failed') {
+              error
+            }
+            @default {
+              hourglass_top
+            }
+          }
+        </mat-icon>
+        <div>
+          <h2 class="status-title">{{ title(job) }}</h2>
+          <p class="muted">
+            {{ job.fileName }} · загружен {{ job.createdAt | date: 'd MMMM, HH:mm' }}
+          </p>
+        </div>
+      </header>
+
+      @if (job.status === 'pending') {
+        <mat-progress-bar mode="indeterminate" />
+        <p class="muted">Обработка начнётся, как только освободится воркер</p>
+      } @else if (job.status === 'processing') {
+        <mat-progress-bar mode="determinate" [value]="progress(job)" />
+        <p class="muted">
+          Обработано {{ job.processedRows }} {{ job.totalRows | i18nPlural: rowsLabels }} ·
+          {{ progress(job) }} %
+        </p>
+      } @else if (job.status === 'failed') {
+        <p class="error" role="alert">{{ job.error }}</p>
+      }
+
+      @if (job.status !== 'pending' && job.status !== 'failed') {
+        <dl class="counters">
+          <div>
+            <dt>Создано</dt>
+            <dd>{{ job.createdCount }}</dd>
+          </div>
+          <div>
+            <dt>Обновлено</dt>
+            <dd>{{ job.updatedCount }}</dd>
+          </div>
+          <div [class.bad]="job.failedCount > 0">
+            <dt>С ошибками</dt>
+            <dd>{{ job.failedCount }}</dd>
+          </div>
+          <div [class.warn]="job.warningCount > 0">
+            <dt>Предупреждения</dt>
+            <dd>{{ job.warningCount }}</dd>
+          </div>
+        </dl>
+      }
+
+      @if (job.status === 'completed' || job.status === 'failed') {
+        <div class="actions">
+          <a mat-flat-button routerLink="/products">К товарам</a>
+          <a mat-button routerLink="/import">Загрузить ещё файл</a>
+        </div>
+      }
+    </section>
+
+    @if (job.status === 'completed') {
+      @if (job.failedCount + job.warningCount > 0) {
+        <app-import-report [jobId]="job.id" />
+      } @else {
+        <p class="all-good muted">Все строки импортированы без замечаний.</p>
+      }
+    }
+  } @else if (state?.kind === 'not-found') {
+    <div class="state">
+      <mat-icon>search_off</mat-icon>
+      <p>Импорт не найден</p>
+      <a mat-stroked-button routerLink="/import">Загрузить файл</a>
+    </div>
+  } @else if (state?.kind === 'error') {
+    <p class="error" role="alert">{{ state.message }}</p>
+  } @else {
+    <mat-progress-bar mode="indeterminate" />
+  }
+</div>
