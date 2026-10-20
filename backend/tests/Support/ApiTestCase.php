@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
+use App\Entity\User;
+use App\Repository\UserRepository;
+use App\Service\Auth\JwtEncoder;
 use DI\Container;
 use League\OpenAPIValidation\PSR7\Exception\ValidationFailed;
 use League\OpenAPIValidation\PSR7\PathFinder;
@@ -14,10 +17,13 @@ use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Slim\App;
 use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\StreamFactory;
 
 abstract class ApiTestCase extends DatabaseTestCase
 {
     private static ?ResponseValidator $specValidator = null;
+
+    private ?string $token = null;
 
     protected function replaceService(string $id, mixed $value): void
     {
@@ -36,9 +42,44 @@ abstract class ApiTestCase extends DatabaseTestCase
         return $this->container->get(App::class);
     }
 
-    protected function request(string $method, string $uri): ResponseInterface
+    protected function createUser(string $email = 'manager@example.com', string $password = 'secret-password'): User
+    {
+        $user = new User($email, password_hash($password, PASSWORD_BCRYPT, ['cost' => 4]));
+        $this->container->get(UserRepository::class)->save($user);
+
+        return $user;
+    }
+
+    protected function authenticate(?User $user = null): User
+    {
+        $user ??= $this->createUser();
+        $this->token = $this->container->get(JwtEncoder::class)->issue($user)->token;
+
+        return $user;
+    }
+
+    protected function useToken(?string $token): void
+    {
+        $this->token = $token;
+    }
+
+    /**
+     * @param array<string, mixed>|null $json
+     */
+    protected function request(string $method, string $uri, ?array $json = null): ResponseInterface
     {
         $request = new ServerRequestFactory()->createServerRequest($method, $uri);
+
+        if ($json !== null) {
+            $request = $request
+                ->withHeader('Content-Type', 'application/json')
+                ->withBody(new StreamFactory()->createStream(json_encode($json, JSON_THROW_ON_ERROR)));
+        }
+
+        if ($this->token !== null) {
+            $request = $request->withHeader('Authorization', 'Bearer ' . $this->token);
+        }
+
         $response = $this->app()->handle($request);
 
         $this->assertMatchesSpec($method, $request->getUri()->getPath(), $response);

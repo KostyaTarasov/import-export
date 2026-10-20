@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http;
 
 use App\Exception\ApiException;
+use App\Exception\UnauthorizedException;
 use App\Exception\ValidationException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -63,6 +64,10 @@ final readonly class ErrorHandler implements ErrorHandlerInterface
 
         if ($exception instanceof HttpMethodNotAllowedException) {
             $response = $response->withHeader('Allow', implode(', ', $exception->getAllowedMethods()));
+        }
+
+        if ($exception instanceof UnauthorizedException) {
+            $response = $response->withHeader('WWW-Authenticate', 'Bearer');
         }
 
         return $response;

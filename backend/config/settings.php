@@ -27,4 +27,8 @@ return [
         'serverVersion' => '17',
     ],
     'messenger.dsn' => $env('MESSENGER_TRANSPORT_DSN'),
+    'jwt.secret' => $env('JWT_SECRET'),
+    'jwt.ttl' => (int) $env('JWT_TTL', '3600'),
+    'admin.email' => $env('ADMIN_EMAIL', 'admin@example.com'),
+    'admin.password' => $env('ADMIN_PASSWORD'),
 ];

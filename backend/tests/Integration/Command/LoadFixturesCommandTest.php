@@ -30,7 +30,11 @@ final class LoadFixturesCommandTest extends DatabaseTestCase
 
     protected function definitions(): array
     {
-        return ['path.storage' => $this->storage];
+        return [
+            'path.storage' => $this->storage,
+            'admin.email' => 'Admin@Example.com',
+            'admin.password' => 'admin-password',
+        ];
     }
 
     public function testFillsAllProductTables(): void
@@ -41,7 +45,8 @@ final class LoadFixturesCommandTest extends DatabaseTestCase
         $tester->execute([], ['interactive' => false]);
 
         $tester->assertCommandIsSuccessful();
-        self::assertStringContainsString('Демонстрационные товары загружены', $tester->getDisplay());
+        self::assertStringContainsString('Демонстрационные данные загружены', $tester->getDisplay());
+        self::assertSame(['admin@example.com'], $this->em->getConnection()->fetchFirstColumn('SELECT email FROM users'));
         self::assertSame(12, $this->countRows('products'));
         self::assertSame(60, $this->countRows('product_attributes'));
         self::assertSame(12, $this->countRows('product_images'));

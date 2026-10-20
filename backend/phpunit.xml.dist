@@ -29,5 +29,7 @@
     <php>
         <env name="APP_DEBUG" value="1" force="true"/>
         <env name="DB_NAME" value="products_test" force="true"/>
+        <env name="JWT_SECRET" value="test-secret-test-secret-test-secret" force="true"/>
+        <env name="JWT_TTL" value="3600" force="true"/>
     </php>
 </phpunit>

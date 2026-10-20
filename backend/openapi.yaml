@@ -7,10 +7,17 @@ info:
     API каталога товаров, загружаемых из xlsx.
     Ошибки возвращаются в едином формате `{"error": {"code", "message"}}`, сообщения на русском.
 
+    Все эндпоинты, кроме входа и проверки состояния, требуют заголовок `Authorization: Bearer <token>`.
+    Токен выдаёт `POST /api/auth/login`.
+
 servers:
   - url: /
 
+security:
+  - bearerAuth: []
+
 tags:
+  - name: Авторизация
   - name: Товары
   - name: Служебное
 
@@ -21,6 +28,7 @@ paths:
       summary: Состояние приложения
       description: Проверяет доступность PostgreSQL и RabbitMQ.
       operationId: health
+      security: []
       responses:
         '200':
           description: Все зависимости доступны
@@ -34,6 +42,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+
+  /api/auth/login:
+    post:
+      tags: [Авторизация]
+      summary: Вход
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Токен доступа
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccessToken'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/auth/me:
+    get:
+      tags: [Авторизация]
+      summary: Текущий пользователь
+      operationId: me
+      responses:
+        '200':
+          description: Пользователь, которому выдан токен
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/products:
     get:
@@ -92,6 +147,8 @@ paths:
                       $ref: '#/components/schemas/ProductListItem'
                   meta:
                     $ref: '#/components/schemas/PageMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationFailed'
 
@@ -118,11 +175,30 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   responses:
+    Unauthorized:
+      description: Нет токена, токен просрочен или неверные учётные данные
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     NotFound:
       description: Ресурс не найден
       content:
@@ -179,6 +255,39 @@ components:
                 type: string
               example:
                 limit: Размер страницы должен быть целым числом от 1 до 100
+
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          example: admin@example.com
+        password:
+          type: string
+          example: admin123
+
+    AccessToken:
+      type: object
+      required: [token, expiresAt]
+      properties:
+        token:
+          type: string
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9…
+        expiresAt:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          example: admin@example.com
 
     PageMeta:
       type: object

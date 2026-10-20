@@ -14,6 +14,8 @@ final class ProductListTest extends ApiTestCase
     {
         parent::setUp();
 
+        $this->authenticate();
+
         $products = $this->container->get(ProductRepository::class);
 
         foreach (

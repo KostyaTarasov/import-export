@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Command\LoadFixturesCommand;
 use App\Doctrine\ResettableEntityManager;
 use App\Fixture\ProductFixture;
+use App\Fixture\UserFixture;
+use App\Service\Auth\JwtEncoder;
 use App\Service\Health\DatabaseCheck;
 use App\Service\Health\HealthService;
 use App\Service\Health\RabbitMqCheck;
@@ -109,6 +111,14 @@ return [
     ),
 
     ImageStorage::class => autowire()->constructorParameter('root', get('path.storage')),
+
+    JwtEncoder::class => autowire()
+        ->constructorParameter('secret', get('jwt.secret'))
+        ->constructorParameter('ttl', get('jwt.ttl')),
+
+    UserFixture::class => autowire()
+        ->constructorParameter('email', get('admin.email'))
+        ->constructorParameter('password', get('admin.password')),
 
     ProductFixture::class => autowire()->constructorParameter('imagesDir', get('path.seed_images')),
 

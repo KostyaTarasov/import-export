@@ -7,6 +7,7 @@ init: .env build up migrate seed
 
 .env:
 	cp .env.example .env
+	sed -i.bak "s/^JWT_SECRET=$$/JWT_SECRET=$$(openssl rand -hex 32)/" .env && rm .env.bak
 
 up:
 	$(DC) up -d

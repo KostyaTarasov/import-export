@@ -10,6 +10,13 @@ use App\Tests\Support\ApiTestCase;
 
 final class ProductShowTest extends ApiTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->authenticate();
+    }
+
     public function testShowsAttributesAndImages(): void
     {
         $product = new Product('3UHfAid1jaMiwgBuNvnsf3', 'Бермуды мужские, Grigio/Verde, OMSA, 46(M), РОССИЯ', 'Мужские трикотажные домашние бермуды', '1320.00', '33.33');
