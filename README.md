@@ -20,7 +20,7 @@ make init
 - Swagger: http://localhost:8080/docs/
 - RabbitMQ: http://localhost:15672 (`app` / `app`)
 
-Пример файла для импорта: `backend/tests/fixtures/import-example.xlsx`.
+Пример файла для импорта: `backend/tests/fixtures/import-example.xlsx`. В нём три ссылки на фото отвечают 403 (строки 24, 34, 38), импорт показывает их в отчёте как предупреждения.
 
 ## Страницы
 
