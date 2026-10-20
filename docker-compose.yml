@@ -23,6 +23,8 @@ services:
     volumes:
       - storage:/app/storage
     depends_on:
+      app:
+        condition: service_started
       db:
         condition: service_healthy
       rabbitmq:
