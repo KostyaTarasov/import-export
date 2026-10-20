@@ -31,4 +31,7 @@ return [
     'jwt.ttl' => (int) $env('JWT_TTL', '3600'),
     'admin.email' => $env('ADMIN_EMAIL', 'admin@example.com'),
     'admin.password' => $env('ADMIN_PASSWORD'),
+    'image.timeout' => (int) $env('IMAGE_DOWNLOAD_TIMEOUT', '15'),
+    'image.max_size' => (int) $env('IMAGE_MAX_SIZE', '10485760'),
+    'image.concurrency' => (int) $env('IMAGE_DOWNLOAD_CONCURRENCY', '6'),
 ];

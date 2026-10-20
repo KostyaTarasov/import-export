@@ -43,11 +43,8 @@ final readonly class ProductFixture implements FixtureInterface
 
     private function storeImage(string $name): string
     {
-        $path = $this->storage->pathFor(self::IMAGES[$name], 'jpg');
-
-        if (!$this->storage->exists($path)) {
-            $this->storage->copy(sprintf('%s/%s.jpg', $this->imagesDir, $name), $path);
-        }
+        $path = sprintf('images/demo/%s.jpg', $name);
+        $this->storage->put($path, (string) file_get_contents(sprintf('%s/%s.jpg', $this->imagesDir, $name)));
 
         return $path;
     }

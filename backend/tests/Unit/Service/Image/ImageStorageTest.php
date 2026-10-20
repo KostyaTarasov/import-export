@@ -10,6 +10,8 @@ use Symfony\Component\Filesystem\Filesystem;
 
 final class ImageStorageTest extends TestCase
 {
+    private const string URL = 'http://catalog.collant.ru/pics/SNL-504038_m.jpg';
+
     private string $root;
 
     protected function setUp(): void
@@ -22,27 +24,37 @@ final class ImageStorageTest extends TestCase
         new Filesystem()->remove($this->root);
     }
 
-    public function testPathDependsOnlyOnUrl(): void
+    public function testStoresByUrlHash(): void
     {
         $storage = new ImageStorage($this->root);
-        $url = 'http://catalog.collant.ru/pics/SNL-504038_m.jpg';
-        $hash = sha1($url);
+        $hash = sha1(self::URL);
 
-        self::assertSame(sprintf('images/%s/%s.jpg', substr($hash, 0, 2), $hash), $storage->pathFor($url, 'jpg'));
-        self::assertSame($storage->pathFor($url, 'jpg'), $storage->pathFor($url, 'jpg'));
-        self::assertNotSame($storage->pathFor($url, 'jpg'), $storage->pathFor('http://catalog.collant.ru/pics/SNL-504038_b1.jpg', 'jpg'));
+        $path = $storage->store(self::URL, 'jpeg-bytes', 'jpg');
+
+        self::assertSame(sprintf('images/%s/%s.jpg', substr($hash, 0, 2), $hash), $path);
+        self::assertStringEqualsFile($this->root . '/' . $path, 'jpeg-bytes');
+        self::assertSame([], glob($this->root . '/images/*/*.tmp'));
     }
 
-    public function testCopyCreatesDirectories(): void
+    public function testFindsStoredFileWithAnyExtension(): void
     {
         $storage = new ImageStorage($this->root);
-        $path = $storage->pathFor('http://catalog.collant.ru/pics/SNL-504038_m.jpg', 'jpg');
 
-        self::assertFalse($storage->exists($path));
+        self::assertNull($storage->find(self::URL));
 
-        $storage->copy(dirname(__DIR__, 4) . '/fixtures/images/bermudas.jpg', $path);
+        $path = $storage->store(self::URL, 'png-bytes', 'png');
 
-        self::assertTrue($storage->exists($path));
-        self::assertFileEquals(dirname(__DIR__, 4) . '/fixtures/images/bermudas.jpg', $this->root . '/' . $path);
+        self::assertSame($path, $storage->find(self::URL));
+        self::assertNull($storage->find('http://catalog.collant.ru/pics/SNL-504038_b1.jpg'));
+    }
+
+    public function testOverwritesExistingFile(): void
+    {
+        $storage = new ImageStorage($this->root);
+        $storage->store(self::URL, 'old', 'jpg');
+
+        $path = $storage->store(self::URL, 'new', 'jpg');
+
+        self::assertStringEqualsFile($this->root . '/' . $path, 'new');
     }
 }

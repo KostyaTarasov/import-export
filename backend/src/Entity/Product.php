@@ -177,12 +177,42 @@ final class Product
         $this->images->add(new ProductImage($this, $url, $path, $position));
     }
 
-    public function removeImage(string $url): void
+    /**
+     * @param array<string, string> $paths
+     */
+    public function replaceImages(array $paths): void
+    {
+        $stale = $this->images->filter(
+            static fn(ProductImage $image): bool => !array_key_exists($image->getUrl(), $paths),
+        );
+
+        foreach ($stale as $image) {
+            $this->images->removeElement($image);
+        }
+
+        $position = 0;
+
+        foreach ($paths as $url => $path) {
+            $image = $this->findImage((string) $url);
+
+            if ($image === null) {
+                $this->images->add(new ProductImage($this, (string) $url, $path, $position));
+            } else {
+                $image->moveTo($position, $path);
+            }
+
+            ++$position;
+        }
+    }
+
+    public function findImage(string $url): ?ProductImage
     {
         foreach ($this->images as $image) {
             if ($image->getUrl() === $url) {
-                $this->images->removeElement($image);
+                return $image;
             }
         }
+
+        return null;
     }
 }

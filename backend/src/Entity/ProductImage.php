@@ -58,4 +58,10 @@ final class ProductImage
     {
         return $this->position;
     }
+
+    public function moveTo(int $position, string $path): void
+    {
+        $this->position = $position;
+        $this->path = $path;
+    }
 }

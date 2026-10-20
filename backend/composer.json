@@ -14,11 +14,13 @@
         "doctrine/orm": "^3.7",
         "firebase/php-jwt": "^7.2",
         "monolog/monolog": "^3.12",
+        "openspout/openspout": "^5.12",
         "php-di/php-di": "^7.1",
         "slim/psr7": "^1.8",
         "slim/slim": "^4.15",
         "symfony/cache": "^8.1",
-        "symfony/console": "^8.1"
+        "symfony/console": "^8.1",
+        "symfony/http-client": "^8.1"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.95",

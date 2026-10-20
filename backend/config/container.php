@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Command\ImportProductsCommand;
 use App\Command\LoadFixturesCommand;
 use App\Doctrine\ResettableEntityManager;
 use App\Fixture\ProductFixture;
@@ -10,6 +11,8 @@ use App\Service\Auth\JwtEncoder;
 use App\Service\Health\DatabaseCheck;
 use App\Service\Health\HealthService;
 use App\Service\Health\RabbitMqCheck;
+use App\Service\Image\HttpImageDownloader;
+use App\Service\Image\ImageDownloader;
 use App\Service\Image\ImageStorage;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
@@ -35,6 +38,8 @@ use Slim\Psr7\Factory\ResponseFactory;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\PhpFilesAdapter;
 use Symfony\Component\Console\Application;
+use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 use function DI\autowire;
 use function DI\get;
@@ -62,6 +67,7 @@ return [
             new Migrations\StatusCommand($dependencyFactory),
             new Migrations\UpToDateCommand($dependencyFactory),
             $container->get(LoadFixturesCommand::class),
+            $container->get(ImportProductsCommand::class),
         ]);
 
         return $console;
@@ -111,6 +117,17 @@ return [
     ),
 
     ImageStorage::class => autowire()->constructorParameter('root', get('path.storage')),
+
+    HttpClientInterface::class => static fn(ContainerInterface $container): HttpClientInterface => HttpClient::create(
+        ['headers' => ['User-Agent' => 'product-import/1.0']],
+        $container->get('image.concurrency'),
+    ),
+
+    ImageDownloader::class => get(HttpImageDownloader::class),
+
+    HttpImageDownloader::class => autowire()
+        ->constructorParameter('timeout', get('image.timeout'))
+        ->constructorParameter('maxSize', get('image.max_size')),
 
     JwtEncoder::class => autowire()
         ->constructorParameter('secret', get('jwt.secret'))

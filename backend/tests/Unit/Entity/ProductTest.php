@@ -29,25 +29,41 @@ final class ProductTest extends TestCase
         self::assertSame(['Цвет' => 'Fumo', 'Бренд' => 'MINIMI'], $this->attributesOf($product));
     }
 
-    public function testImagesKeepOrder(): void
+    public function testReplaceImagesKeepsFileOrder(): void
     {
         $product = $this->product();
-        $product->addImage('http://catalog.collant.ru/pics/SNL-558148_m.jpg', 'images/a.jpg');
-        $product->addImage('http://catalog.collant.ru/pics/SNL-558148_b1.jpg', 'images/b.jpg');
-        $product->removeImage('http://catalog.collant.ru/pics/SNL-558148_m.jpg');
-        $product->addImage('http://catalog.collant.ru/pics/SNL-558148_p.jpg', 'images/c.jpg');
+        $product->replaceImages([
+            'http://catalog.collant.ru/pics/SNL-558148_m.jpg' => 'images/a.jpg',
+            'http://catalog.collant.ru/pics/SNL-558148_b1.jpg' => 'images/b.jpg',
+        ]);
+        $kept = $product->findImage('http://catalog.collant.ru/pics/SNL-558148_b1.jpg');
+
+        $product->replaceImages([
+            'http://catalog.collant.ru/pics/SNL-558148_b1.jpg' => 'images/b2.jpg',
+            'http://catalog.collant.ru/pics/SNL-558148_p.jpg' => 'images/c.jpg',
+        ]);
 
         self::assertSame(
             [
-                'http://catalog.collant.ru/pics/SNL-558148_b1.jpg' => 1,
-                'http://catalog.collant.ru/pics/SNL-558148_p.jpg' => 2,
+                ['http://catalog.collant.ru/pics/SNL-558148_b1.jpg', 'images/b2.jpg', 0],
+                ['http://catalog.collant.ru/pics/SNL-558148_p.jpg', 'images/c.jpg', 1],
             ],
-            array_column(
-                array_map(static fn(ProductImage $image): array => [$image->getUrl(), $image->getPosition()], $product->getImages()),
-                1,
-                0,
+            array_map(
+                static fn(ProductImage $image): array => [$image->getUrl(), $image->getPath(), $image->getPosition()],
+                $product->getImages(),
             ),
         );
+        self::assertSame($kept, $product->findImage('http://catalog.collant.ru/pics/SNL-558148_b1.jpg'));
+        self::assertNull($product->findImage('http://catalog.collant.ru/pics/SNL-558148_m.jpg'));
+    }
+
+    public function testAddImageAppendsToEnd(): void
+    {
+        $product = $this->product();
+        $product->replaceImages(['http://catalog.collant.ru/pics/SNL-561514_m.jpg' => 'images/a.jpg']);
+        $product->addImage('http://catalog.collant.ru/pics/SNL-561514_p.jpg', 'images/b.jpg');
+
+        self::assertSame(1, $product->findImage('http://catalog.collant.ru/pics/SNL-561514_p.jpg')?->getPosition());
     }
 
     public function testUpdateTouchesUpdatedAt(): void

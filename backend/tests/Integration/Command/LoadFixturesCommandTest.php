@@ -56,6 +56,7 @@ final class LoadFixturesCommandTest extends DatabaseTestCase
         self::assertCount(4, $paths);
 
         foreach ($paths as $path) {
+            self::assertStringStartsWith('images/demo/', $path);
             self::assertFileExists($this->storage . '/' . $path);
         }
     }

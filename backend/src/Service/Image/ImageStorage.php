@@ -8,34 +8,56 @@ use RuntimeException;
 
 final readonly class ImageStorage
 {
+    private const array EXTENSIONS = ['jpg', 'png', 'webp', 'gif'];
+
     public function __construct(
         private string $root,
     ) {}
 
-    public function pathFor(string $url, string $extension): string
+    public function find(string $url): ?string
     {
-        $hash = sha1($url);
+        foreach (self::EXTENSIONS as $extension) {
+            $path = $this->pathFor($url, $extension);
 
-        return sprintf('images/%s/%s.%s', substr($hash, 0, 2), $hash, $extension);
+            if (is_file($this->absolute($path))) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
-    public function exists(string $path): bool
+    public function store(string $url, string $content, string $extension): string
     {
-        return is_file($this->absolute($path));
+        $path = $this->pathFor($url, $extension);
+        $this->put($path, $content);
+
+        return $path;
     }
 
-    public function copy(string $source, string $path): void
+    public function put(string $path, string $content): void
     {
         $target = $this->absolute($path);
         $directory = dirname($target);
 
-        if (!is_dir($directory) && !mkdir($directory, 0o775, true) && !is_dir($directory)) {
+        if (!is_dir($directory) && !@mkdir($directory, 0o775, true) && !is_dir($directory)) {
             throw new RuntimeException(sprintf('Не удалось создать каталог %s', $directory));
         }
 
-        if (!copy($source, $target)) {
-            throw new RuntimeException(sprintf('Не удалось скопировать %s в %s', $source, $target));
+        $temporary = $target . '.' . bin2hex(random_bytes(4)) . '.tmp';
+
+        if (file_put_contents($temporary, $content) === false || !rename($temporary, $target)) {
+            @unlink($temporary);
+
+            throw new RuntimeException(sprintf('Не удалось сохранить файл %s', $target));
         }
+    }
+
+    private function pathFor(string $url, string $extension): string
+    {
+        $hash = sha1($url);
+
+        return sprintf('images/%s/%s.%s', substr($hash, 0, 2), $hash, $extension);
     }
 
     private function absolute(string $path): string
